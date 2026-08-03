@@ -1,0 +1,28 @@
+project:
+  threadCount:
+    feature: 1
+    scenario: 1
+
+rest:
+  baseURI: https://sandbox-dock.devcdt.com.br
+  basePath: /v2/api
+  header:
+    Access_Token: 88bmg
+  Authorization: Basic dXNlcjpwYXNzd29yZA==
+
+database:
+  sql_server:
+    host: 10.213.128.233
+    port: 1433
+    username: UserPier
+    password: UserPier
+    db_schema: BMG
+    domain:
+    dialect: SQL_SERVER
+
+allure-server:
+  baseURI: http://10.213.191.56
+  port: 8080
+  basePath: /api
+  prefix: pier-modularization
+  sendReport: true
