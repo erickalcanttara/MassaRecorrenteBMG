@@ -56,24 +56,24 @@ public class GenarateAccountAndCardTest {
     }
 
     @ParameterizedTest
-    @CsvFileSource(resources = "/cenario1/cenario-1.csv")
-    public void genareteIndividualAccountAndCardCenario1Test(int idProduto) {
+    @CsvFileSource(resources = "/cenario1/cenario-1.csv", delimiter = ';')
+    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
-        cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, 558);
+        cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
     }
 
     @ParameterizedTest
-    @CsvFileSource(resources = "/cenario2/cenario-2.csv")
-    public void genareteIndividualAccountAndCardCenario2Test(int idProduto) {
+    @CsvFileSource(resources = "/cenario2/cenario-2.csv", delimiter = ';')
+    public void genareteIndividualAccountAndCardCenario2Test(int idProduto, int produtoVinculado) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO2);
-        cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, 558);
+        cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario4/cenario-4.csv", delimiter = ';')
-    public void genareteIndividualAccountAndCardCenario4Test(int idProduto1, int idProduto2) {
+    public void genareteIndividualAccountAndCardCenario4Test(int idProduto1, int produtoVinculado) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto1, NOME_CENARIO4);
-        cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, idProduto2);
+        cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
     }
 
     @ParameterizedTest
@@ -84,9 +84,9 @@ public class GenarateAccountAndCardTest {
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario3/cenario-3.csv", delimiter = ';')
-    public void genareteIndividualAccountAndCardCenario3Test(int idProduto, int idProduto2, int idProduto3, int idProduto4) {
+    public void genareteIndividualAccountAndCardCenario3Test(int idProduto, int produtoVinculado1, int produtoVinculado2, int produtoVinculado3) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO3);
-        int[] produtosVinculados = {idProduto2, idProduto3, idProduto4};
+        int[] produtosVinculados = {produtoVinculado1, produtoVinculado2, produtoVinculado3};
 
         for (int produto : produtosVinculados) {
             if (produto == 0) {
