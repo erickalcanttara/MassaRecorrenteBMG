@@ -16,6 +16,7 @@ public class GenarateAccountAndCardTest {
     RestProperties restProperties = new RestProperties();
     final String URL_SANDBOX = restProperties.getUrlSandbox();
     final String accessToken = restProperties.getAccessToken();
+
     final String PATH_PESSOAS = "pessoas";
     final String PATH_PESSOAS_DETALHES = "pessoas-detalhes";
     final String PATH_ENDERECOS = "enderecos";
@@ -24,6 +25,7 @@ public class GenarateAccountAndCardTest {
     final String PATH_CARTOES = "contas/{id}/gerar-cartao-grafica";
     final String PATH_CARTOES_ALTERAR_ESTAGIO = "cartoes/{id}/alterar-estagio";
     final String PATH_DESBLOQUEIO_CARTAO = "cartoes/{id}/desbloquear";
+    final String PATH_EVENTOS_COMPRAS = "eventos-externos-compras";
 
     /*
         Dados a serem modificados para que se gere uma conta com algumas informações específicas
@@ -39,14 +41,19 @@ public class GenarateAccountAndCardTest {
     DadosBancariosUtils dadosBancariosUtils = new DadosBancariosUtils();
     CartoesUtils cartoesUtils = new CartoesUtils();
     ArquivoCenarioUtils arquivoCenarioUtils = new ArquivoCenarioUtils();
+    EventosExternosComprasUtils eventosExternosComprasUtils = new EventosExternosComprasUtils();
 
     private static class DadosContaBase {
         final int idPessoa;
         final int idEndereco;
+        final int idConta;
+        final int idCartao;
 
-        DadosContaBase(int idPessoa, int idEndereco) {
+        DadosContaBase(int idPessoa, int idEndereco, int idConta, int idCartao) {
             this.idPessoa = idPessoa;
             this.idEndereco = idEndereco;
+            this.idConta = idConta;
+            this.idCartao = idCartao;
         }
     }
 
@@ -57,9 +64,14 @@ public class GenarateAccountAndCardTest {
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario1/cenario-1.csv", delimiter = ';')
-    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado) {
+    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, String tipoCompra, int valorCompra) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
+        if (tipoCompra.equalsIgnoreCase("avista")) {
+            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
+        } else if (tipoCompra.equalsIgnoreCase("parcelado")) {
+            eventosExternosComprasUtils.gerarCompraParcelado(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
+        }
     }
 
     @ParameterizedTest
@@ -112,7 +124,7 @@ public class GenarateAccountAndCardTest {
         cartoesUtils.desbloquearCartao(URL_SANDBOX, PATH_DESBLOQUEIO_CARTAO, accessToken, idCartao);
 
         arquivoCenarioUtils.gravaIdsContaECartao(nomeCenario, idConta, idCartao);
-        return new DadosContaBase(idPessoa, idEndereco);
+        return new DadosContaBase(idPessoa, idEndereco, idConta, idCartao);
     }
 
     private void cadastrarContaVinculada(int idPessoa, int idEndereco, int idProdutoVinculado) {
