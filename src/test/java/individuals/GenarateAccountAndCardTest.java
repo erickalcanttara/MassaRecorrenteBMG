@@ -67,11 +67,7 @@ public class GenarateAccountAndCardTest {
     public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, String tipoCompra, int valorCompra) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
-        if (tipoCompra.equalsIgnoreCase("avista")) {
-            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
-        } else if (tipoCompra.equalsIgnoreCase("parcelado")) {
-            eventosExternosComprasUtils.gerarCompraParcelado(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
-        }
+        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
     }
 
     @ParameterizedTest
