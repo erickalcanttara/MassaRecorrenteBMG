@@ -32,7 +32,7 @@ public class GenarateAccountAndCardTest {
         Por padrão, já serão gerados com os valores padrão abaixo.
      */
     int idOrigemComercial = 11;
-    int diaVencimento = 15;
+    private static volatile Integer diaVencimento;
 
     PessoasUtils pessoa = new PessoasUtils();
     PessoasDetalhesUtils pessoasDetalhesUtils = new PessoasDetalhesUtils();
@@ -42,6 +42,17 @@ public class GenarateAccountAndCardTest {
     CartoesUtils cartoesUtils = new CartoesUtils();
     ArquivoCenarioUtils arquivoCenarioUtils = new ArquivoCenarioUtils();
     EventosExternosComprasUtils eventosExternosComprasUtils = new EventosExternosComprasUtils();
+
+    public static void setDiaVencimento(int diaVencimento) {
+        GenarateAccountAndCardTest.diaVencimento = diaVencimento;
+    }
+
+    private int getDiaVencimento() {
+        if (diaVencimento == null) {
+            throw new IllegalStateException("Dia de vencimento não informado pela tela.");
+        }
+        return diaVencimento;
+    }
 
     private static class DadosContaBase {
         final int idPessoa;
@@ -64,34 +75,34 @@ public class GenarateAccountAndCardTest {
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario1/cenario-1.csv", delimiter = ';')
-    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, String tipoCompra, int valorCompra) {
+    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, int valorCompra) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
         eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
     }
 
-    @ParameterizedTest
-    @CsvFileSource(resources = "/cenario2/cenario-2.csv", delimiter = ';')
+    //@ParameterizedTest
+    //@CsvFileSource(resources = "/cenario2/cenario-2.csv", delimiter = ';')
     public void genareteIndividualAccountAndCardCenario2Test(int idProduto, int produtoVinculado) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO2);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
     }
 
-    @ParameterizedTest
-    @CsvFileSource(resources = "/cenario4/cenario-4.csv", delimiter = ';')
+    //@ParameterizedTest
+    //@CsvFileSource(resources = "/cenario4/cenario-4.csv", delimiter = ';')
     public void genareteIndividualAccountAndCardCenario4Test(int idProduto1, int produtoVinculado) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto1, NOME_CENARIO4);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
     }
 
-    @ParameterizedTest
-    @CsvFileSource(resources = "/cenario5/cenario-5.csv")
+    //@ParameterizedTest
+    //@CsvFileSource(resources = "/cenario5/cenario-5.csv")
     public void genareteIndividualAccountAndCardCenario5Test(int idProduto) {
         executarFluxoPrincipal(idProduto, NOME_CENARIO5);
     }
 
-    @ParameterizedTest
-    @CsvFileSource(resources = "/cenario3/cenario-3.csv", delimiter = ';')
+    //@ParameterizedTest
+    //@CsvFileSource(resources = "/cenario3/cenario-3.csv", delimiter = ';')
     public void genareteIndividualAccountAndCardCenario3Test(int idProduto, int produtoVinculado1, int produtoVinculado2, int produtoVinculado3) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO3);
         int[] produtosVinculados = {produtoVinculado1, produtoVinculado2, produtoVinculado3};
@@ -112,7 +123,7 @@ public class GenarateAccountAndCardTest {
         int idPessoa = pessoa.geraPessoa(URL_SANDBOX, PATH_PESSOAS, accessToken);
         pessoasDetalhesUtils.geraPessoaDetalhes(URL_SANDBOX, PATH_PESSOAS_DETALHES, accessToken, idPessoa, randomNumeroAgencia, randomContaCorrente);
         int idEndereco = enderecosUtils.geraEndereco(URL_SANDBOX, PATH_ENDERECOS, accessToken, idPessoa);
-        int idConta = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProduto, diaVencimento);
+        int idConta = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProduto, getDiaVencimento());
 
         dadosBancariosUtils.cadastraDadosBancarios(URL_SANDBOX, PATH_DADOS_BANCARIOS, accessToken, idConta, randomNumeroAgencia, randomContaCorrente);
         int idCartao = cartoesUtils.geraCartao(URL_SANDBOX, PATH_CARTOES, accessToken, idConta, idPessoa);
@@ -127,7 +138,7 @@ public class GenarateAccountAndCardTest {
         int randomNumeroAgenciaVinculado = gerarNumeroAgencia();
         int randomContaCorrenteVinculado = gerarContaCorrente();
 
-        int idContaVinculado = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProdutoVinculado, diaVencimento);
+        int idContaVinculado = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProdutoVinculado, getDiaVencimento());
         dadosBancariosUtils.cadastraDadosBancarios(URL_SANDBOX, PATH_DADOS_BANCARIOS, accessToken, idContaVinculado, randomNumeroAgenciaVinculado, randomContaCorrenteVinculado);
     }
 

@@ -11,9 +11,49 @@ public class MassaRecorrenteQueries {
 
     private final BDconnect bd = new BDconnect();
 
+    public static class InsercaoVencimentoContexto {
+        private final Connection connection;
+        private final Map<String, Object> informacaoVencimento;
+
+        InsercaoVencimentoContexto(Connection connection, Map<String, Object> informacaoVencimento) {
+            this.connection = connection;
+            this.informacaoVencimento = informacaoVencimento;
+        }
+
+        public Map<String, Object> getInformacaoVencimento() {
+            return informacaoVencimento;
+        }
+
+        public void commit() {
+            fecharConexao(true);
+        }
+
+        public void rollback() {
+            fecharConexao(false);
+        }
+
+        private void fecharConexao(boolean commit) {
+            try {
+                if (commit) {
+                    connection.commit();
+                } else {
+                    connection.rollback();
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Erro ao finalizar transação: " + e.getMessage(), e);
+            } finally {
+                try {
+                    connection.close();
+                } catch (SQLException e) {
+                    throw new RuntimeException("Erro ao fechar conexão: " + e.getMessage(), e);
+                }
+            }
+        }
+    }
+
     public String buildVencimentoMassa(String dataVencimento) {
         return "select top 10 c.ProximoVencimentoPadrao, c.dataprevistacorte, c.DataRealizacaoCorte, c.DataVencimento,\n" +
-                "cp.VencimentoPadraoCortar, cp.DataMovimento as 'criar na ControleProcessosProcedures', cpp.DataMovimento\n" +
+                "cp.VencimentoPadraoCortar, cp.DataMovimento as DataMovimento, cp.DataMovimento as 'criar na ControleProcessosProcedures'\n" +
                 "from ControleVencimentos c (nolock)\n" +
                 "inner join ControleProcessos cp (nolock) \n" +
                 "    on convert(varchar, c.DataVencimento, 103) = cp.ProximoVencimentoPadrao\n" +
@@ -36,9 +76,42 @@ public class MassaRecorrenteQueries {
         return extrairDataSomente(dataMovimento);
     }
 
-    public String buildInsertControleProcessosProcedures(String dataVencimento) {
-        String dataInsert = getInformacoesVencimento(dataVencimento);
-        return "INSERT INTO ControleProcessosProcedures(Id_Processo, DataMovimento, DataUltProc, FlagExecutado) Select 9, '" + dataInsert + "', getdate(), 2";
+    public InsercaoVencimentoContexto buildInsertControleProcessosProcedures(String dataVencimento) {
+        String insertSql = "INSERT INTO ControleProcessosProcedures(Id_Processo, DataMovimento, DataUltProc, FlagExecutado) Select 9, ?, getdate(), 2";
+        Connection conn = null;
+        try {
+            conn = bd.getConnection();
+            conn.setAutoCommit(false);
+
+            try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+                Map<String, Object> informacaoVencimento = getInformacoesVencimento(conn, dataVencimento);
+                String dataInsert = extrairDataSomente(informacaoVencimento.get("criar na ControleProcessosProcedures"));
+                stmt.setDate(1, java.sql.Date.valueOf(dataInsert));
+                stmt.executeUpdate();
+
+                return new InsercaoVencimentoContexto(conn, informacaoVencimento);
+            }
+        } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                    conn.close();
+                } catch (SQLException ex) {
+                    throw new RuntimeException("Erro ao encerrar transação: " + ex.getMessage(), ex);
+                }
+            }
+            throw new RuntimeException("Erro ao executar insert: " + e.getMessage(), e);
+        } catch (RuntimeException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                    conn.close();
+                } catch (SQLException ex) {
+                    throw new RuntimeException("Erro ao encerrar transação: " + ex.getMessage(), ex);
+                }
+            }
+            throw e;
+        }
     }
 
     private String extrairDataSomente(Object valorData) {
@@ -72,8 +145,30 @@ public class MassaRecorrenteQueries {
         }
     }
 
+    private Map<String, Object> executaQuery(Connection conn, String query) {
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query)) {
+
+            if (!rs.next()) {
+                return null;
+            }
+            return resultSetToMap(rs);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao executar query na transação: " + e.getMessage(), e);
+        }
+    }
+
+    private Map<String, Object> getInformacoesVencimento(Connection conn, String dataVencimento) {
+        Map<String, Object> buscaInformacoesVencimento = executaQuery(conn, buildVencimentoMassa(dataVencimento));
+
+        if (Objects.isNull(buscaInformacoesVencimento)) {
+            throw new SkipException("Não existe massa válida na base de dados do emissor.");
+        }
+        return buscaInformacoesVencimento;
+    }
+
     private Map<String, Object> resultSetToMap(ResultSet rs) throws SQLException {
-        Map<String, Object> row = new HashMap<>();
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
         ResultSetMetaData meta = rs.getMetaData();
         int cols = meta.getColumnCount();
         for (int i = 1; i <= cols; i++) {

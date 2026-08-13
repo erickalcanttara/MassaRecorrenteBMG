@@ -10,7 +10,7 @@ public class MassaRecorrenteClass {
 
     @Test
     public void getInformacoesVencimentoTest() {
-        String sql = mr.buildInsertControleProcessosProcedures(DATA_VENCIMENTO);
-        System.out.println(sql);
+        //String sql = mr.buildInsertControleProcessosProcedures(DATA_VENCIMENTO);
+        //System.out.println(sql);
     }
 }

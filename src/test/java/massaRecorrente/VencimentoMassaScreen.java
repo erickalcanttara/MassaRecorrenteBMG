@@ -1,22 +1,40 @@
 package massaRecorrente;
 
 import javafx.application.Application;
+import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.concurrent.Task;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import individuals.GenarateAccountAndCardTest;
 import queries.MassaRecorrenteQueries;
+
+import org.junit.platform.engine.discovery.DiscoverySelectors;
+import org.junit.platform.launcher.Launcher;
+import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
+import org.junit.platform.launcher.core.LauncherFactory;
+import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
+import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Optional;
+import java.util.Map;
 
 public class VencimentoMassaScreen extends Application {
 
@@ -25,6 +43,7 @@ public class VencimentoMassaScreen extends Application {
     private final MassaRecorrenteQueries queries = new MassaRecorrenteQueries();
     private final TextField dataVencimentoField = new TextField();
     private final TextArea outputArea = new TextArea();
+    private final TableView<Map<String, Object>> tableView = new TableView<Map<String, Object>>();
 
     @Override
     public void start(Stage primaryStage) {
@@ -44,7 +63,11 @@ public class VencimentoMassaScreen extends Application {
         outputArea.setWrapText(true);
         outputArea.setPrefRowCount(12);
 
-        VBox content = new VBox(10, tituloLabel, inputBox, outputArea);
+        tableView.setPlaceholder(new Label("As informações da query serão exibidas aqui."));
+        tableView.setPrefHeight(180);
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        VBox content = new VBox(10, tituloLabel, inputBox, tableView, outputArea);
         content.setPadding(new Insets(15));
 
         BorderPane root = new BorderPane(content);
@@ -68,8 +91,9 @@ public class VencimentoMassaScreen extends Application {
             return;
         }
 
-        String sql = queries.buildInsertControleProcessosProcedures(dataVencimento);
-        outputArea.setText(sql);
+        int diaVencimento = LocalDate.parse(dataVencimento, DATA_FORMATTER).getDayOfMonth();
+        outputArea.setText("Executando insert...\n");
+        executarInsertEConfirmar(dataVencimento, diaVencimento);
     }
 
     private boolean dataEhValida(String dataVencimento) {
@@ -87,6 +111,114 @@ public class VencimentoMassaScreen extends Application {
         alert.setHeaderText(null);
         alert.setContentText(mensagem);
         alert.showAndWait();
+    }
+
+    private void executarInsertEConfirmar(String dataVencimento, int diaVencimento) {
+        Task<MassaRecorrenteQueries.InsercaoVencimentoContexto> task = new Task<MassaRecorrenteQueries.InsercaoVencimentoContexto>() {
+            @Override
+            protected MassaRecorrenteQueries.InsercaoVencimentoContexto call() {
+                return queries.buildInsertControleProcessosProcedures(dataVencimento);
+            }
+        };
+
+        task.setOnSucceeded(event -> {
+            MassaRecorrenteQueries.InsercaoVencimentoContexto contexto = task.getValue();
+            Map<String, Object> informacaoVencimento = contexto.getInformacaoVencimento();
+            outputArea.appendText("Insert executado com sucesso.\n");
+            outputArea.appendText("Informacoes de vencimento carregadas na tabela.\n");
+            preencherTabela(informacaoVencimento);
+
+            Alert confirmacao = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmacao.setTitle("Confirmacao");
+            confirmacao.setHeaderText(null);
+            confirmacao.setContentText("As informacoes de vencimento estao corretas?");
+            ButtonType sim = ButtonType.YES;
+            ButtonType nao = ButtonType.NO;
+            confirmacao.getButtonTypes().setAll(sim, nao);
+
+            Optional<ButtonType> resposta = confirmacao.showAndWait();
+            if (!resposta.isPresent() || resposta.get() != sim) {
+                contexto.rollback();
+                outputArea.appendText("Execucao cancelada.\n");
+                return;
+            }
+
+            contexto.commit();
+            GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
+            outputArea.appendText("\nExecutando GenarateAccountAndCardTest...\n");
+            executarGenarateAccountAndCardTest(diaVencimento);
+        });
+
+        task.setOnFailed(event -> mostrarErro("Erro ao executar insert: " + task.getException().getMessage()));
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void preencherTabela(Map<String, Object> informacaoVencimento) {
+        tableView.getItems().clear();
+        tableView.getColumns().clear();
+
+        if (informacaoVencimento == null || informacaoVencimento.isEmpty()) {
+            return;
+        }
+
+        ObservableList<Map<String, Object>> itens = FXCollections.observableArrayList();
+        itens.add(informacaoVencimento);
+        tableView.setItems(itens);
+
+        for (String chave : informacaoVencimento.keySet()) {
+            TableColumn<Map<String, Object>, String> coluna = new TableColumn<Map<String, Object>, String>(chave);
+            coluna.setText(chave);
+            coluna.setCellValueFactory(cellData -> new ReadOnlyStringWrapper(
+                    String.valueOf(cellData.getValue().get(chave))
+            ));
+            coluna.setMinWidth(90);
+            coluna.setPrefWidth(120);
+            tableView.getColumns().add(coluna);
+        }
+    }
+
+    private void executarGenarateAccountAndCardTest(int diaVencimento) {
+        Task<String> task = new Task<String>() {
+            @Override
+            protected String call() {
+                GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
+                SummaryGeneratingListener listener = new SummaryGeneratingListener();
+                LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                        .selectors(DiscoverySelectors.selectClass(GenarateAccountAndCardTest.class))
+                        .build();
+
+                Launcher launcher = LauncherFactory.create();
+                launcher.execute(request, listener);
+
+                TestExecutionSummary summary = listener.getSummary();
+                StringBuilder resultado = new StringBuilder();
+                resultado.append("Tests found: ").append(summary.getTestsFoundCount()).append('\n');
+                resultado.append("Tests succeeded: ").append(summary.getTestsSucceededCount()).append('\n');
+                resultado.append("Tests failed: ").append(summary.getTestsFailedCount()).append('\n');
+
+                if (summary.getTotalFailureCount() > 0) {
+                    for (TestExecutionSummary.Failure failure : summary.getFailures()) {
+                        resultado.append('\n')
+                                .append(failure.getTestIdentifier().getDisplayName())
+                                .append(" -> ")
+                                .append(failure.getException().getMessage())
+                                .append('\n');
+                    }
+                }
+
+                return resultado.toString();
+            }
+        };
+
+        task.setOnSucceeded(event -> outputArea.appendText(task.getValue()));
+        task.setOnFailed(event -> mostrarErro("Erro ao executar GenarateAccountAndCardTest: " + task.getException().getMessage()));
+
+        Thread thread = new Thread(task);
+        thread.setDaemon(true);
+        thread.start();
     }
 
     public static void main(String[] args) {
