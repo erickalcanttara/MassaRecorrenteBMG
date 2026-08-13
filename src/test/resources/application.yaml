@@ -12,7 +12,7 @@ rest:
 
 database:
   sql_server:
-    host: 10.213.128.233
+    host: AW2D-BMGDB-234.DEVDOCK.INTERNAL
     port: 1433
     username: UserPier
     password: UserPier
