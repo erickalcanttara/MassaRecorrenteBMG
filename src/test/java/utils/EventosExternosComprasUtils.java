@@ -9,12 +9,18 @@ import static io.restassured.RestAssured.given;
 
 public class EventosExternosComprasUtils {
 
-    public String getBodyEventoCompraAvista(int idConta, int idCartao, double valor) {
+    private static final String SUFIXO_DATA_COMPRA = "T01:30:00.000-05:00";
+
+    private String montarDataCompra(String dataBase) {
+        return dataBase + SUFIXO_DATA_COMPRA;
+    }
+
+    public String getBodyEventoCompraAvista(int idConta, int idCartao, double valor, String dataCompra) {
         return "{\n" +
                 "  \"idEstabelecimento\": 1,\n" +
                 "  \"idConta\": " + idConta + ",\n" +
                 "  \"idCartao\": " + idCartao + ",\n" +
-                "  \"dataCompra\": \"2026-07-22T01:30:00.000-05:00\",\n" +
+                "  \"dataCompra\": \"" + montarDataCompra(dataCompra) + "\",\n" +
                 "  \"idOperacao\": 270,\n" +
                 "  \"numeroParcelas\": 1,\n" +
                 "  \"valorParcela\": " + valor + ",\n" +
@@ -31,12 +37,12 @@ public class EventosExternosComprasUtils {
                 "}";
     }
 
-    public String getBodyEventoCompraParcelado(int idConta, int idCartao, int qtdParcelas, int valorParcela) {
+    public String getBodyEventoCompraParcelado(int idConta, int idCartao, int qtdParcelas, int valorParcela, String dataCompra) {
         return "{\n" +
                 "  \"idEstabelecimento\": 1,\n" +
                 "  \"idConta\": " + idConta + ",\n" +
                 "  \"idCartao\": " + idCartao + ",\n" +
-                "  \"dataCompra\": \"2026-07-22T01:30:00.000-05:00\",\n" +
+                "  \"dataCompra\": \"" + montarDataCompra(dataCompra) + "\",\n" +
                 "  \"idOperacao\": 28,\n" +
                 "  \"numeroParcelas\": " + qtdParcelas + ",\n" +
                 "  \"valorParcela\": " + valorParcela + ",\n" +
@@ -54,9 +60,9 @@ public class EventosExternosComprasUtils {
     }
 
     public Response gerarCompraAvista(String urlSandbox, String pathEventosCompras, String accessToken,
-                                int idConta, int idCartao, int valor) {
+                                int idConta, int idCartao, int valor, String dataCompra) {
         int RandomNum = (int) (Math.random() * valor);
-        String bodyEventoCompra = getBodyEventoCompraAvista(idConta, idCartao, RandomNum);
+        String bodyEventoCompra = getBodyEventoCompraAvista(idConta, idCartao, RandomNum, dataCompra);
 
         System.out.println("\n Gerando evento externo de compra...");
         Response responseEventoCompra =
@@ -77,13 +83,13 @@ public class EventosExternosComprasUtils {
     }
 
     public Response gerarCompraParcelado(String urlSandbox, String pathEventosCompras, String accessToken,
-                                      int idConta, int idCartao,  int valorCompra) {
+                                      int idConta, int idCartao,  int valorCompra, String dataCompra) {
 
         int randomQtdParcelas = ThreadLocalRandom.current().nextInt(3, 13);
         int limiteValorParcela = Math.max(1, valorCompra / randomQtdParcelas);
         int randomValorParcela = ThreadLocalRandom.current().nextInt(1, limiteValorParcela + 1);
 
-        String bodyEventoCompra = getBodyEventoCompraParcelado(idConta, idCartao, randomQtdParcelas, randomValorParcela);
+        String bodyEventoCompra = getBodyEventoCompraParcelado(idConta, idCartao, randomQtdParcelas, randomValorParcela, dataCompra);
 
         System.out.println("\n Gerando evento externo de compra...");
         Response responseEventoCompra =
@@ -103,4 +109,3 @@ public class EventosExternosComprasUtils {
         return responseEventoCompra;
     }
 }
-

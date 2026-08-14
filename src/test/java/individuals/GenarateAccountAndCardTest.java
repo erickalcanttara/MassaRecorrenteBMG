@@ -5,6 +5,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvFileSource;
 import utils.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+
 public class GenarateAccountAndCardTest {
 
     static final String NOME_CENARIO1 = "cenario1";
@@ -33,6 +36,7 @@ public class GenarateAccountAndCardTest {
      */
     int idOrigemComercial = 11;
     private static volatile Integer diaVencimento;
+    private static volatile String gerarComprasAte;
 
     PessoasUtils pessoa = new PessoasUtils();
     PessoasDetalhesUtils pessoasDetalhesUtils = new PessoasDetalhesUtils();
@@ -47,11 +51,27 @@ public class GenarateAccountAndCardTest {
         GenarateAccountAndCardTest.diaVencimento = diaVencimento;
     }
 
+    public static void setGerarComprasAte(String gerarComprasAte) {
+        GenarateAccountAndCardTest.gerarComprasAte = gerarComprasAte;
+    }
+
     private int getDiaVencimento() {
         if (diaVencimento == null) {
             throw new IllegalStateException("Dia de vencimento não informado pela tela.");
         }
         return diaVencimento;
+    }
+
+    private String getGerarComprasAte() {
+        if (gerarComprasAte == null || gerarComprasAte.isEmpty()) {
+            throw new IllegalStateException("Data limite para compras não informada pela tela.");
+        }
+        return gerarComprasAte;
+    }
+
+    private String getGerarComprasAteMenosCincoDias() {
+        LocalDate dataBase = LocalDate.parse(getGerarComprasAte());
+        return dataBase.minusDays(5).format(DateTimeFormatter.ISO_LOCAL_DATE);
     }
 
     private static class DadosContaBase {
@@ -78,7 +98,7 @@ public class GenarateAccountAndCardTest {
     public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, int valorCompra) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
-        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra);
+        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra, getGerarComprasAteMenosCincoDias());
     }
 
     //@ParameterizedTest
@@ -113,7 +133,6 @@ public class GenarateAccountAndCardTest {
             }
             cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produto);
         }
-
     }
 
     private DadosContaBase executarFluxoPrincipal(int idProduto, String nomeCenario) {

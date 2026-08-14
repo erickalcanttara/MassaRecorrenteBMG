@@ -63,7 +63,7 @@ public class VencimentoMassaScreen extends Application {
         outputArea.setWrapText(true);
         outputArea.setPrefRowCount(12);
 
-        tableView.setPlaceholder(new Label("As informações da query serão exibidas aqui."));
+        tableView.setPlaceholder(new Label("As informações de vencimento serão exibidas aqui."));
         tableView.setPrefHeight(180);
         tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
@@ -145,7 +145,8 @@ public class VencimentoMassaScreen extends Application {
 
             contexto.commit();
             GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
-            outputArea.appendText("\nExecutando GenarateAccountAndCardTest...\n");
+            GenarateAccountAndCardTest.setGerarComprasAte(queries.getGerarComprasAte(dataVencimento));
+            outputArea.appendText("\nCriando contas e cartões...\n");
             executarGenarateAccountAndCardTest(diaVencimento);
         });
 

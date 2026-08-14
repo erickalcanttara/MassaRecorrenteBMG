@@ -66,14 +66,63 @@ public class MassaRecorrenteQueries {
                 "ORDER BY CONVERT(smalldatetime,cp.VencimentoPadraoCortar,103) DESC";
     }
 
-    public String getInformacoesVencimento(String dataVencimento) {
-        Map<String, Object> buscaInformacoesVencimento = executaQuery(buildVencimentoMassa(dataVencimento));
+    public String GetDataCompra(int diaVencimento) {
+        return "declare @diaVencimento int =" + diaVencimento + " -- DIA DO VENCIMENTO DESEJADO\n" +
+                "--\n" +
+                "drop table if exists #vencimentos\n" +
+                "\n" +
+                "\n" +
+                "----vencimento com colunas id_controleVencimentos, dataVencimento, dataprevistacorte\n" +
+                "select Id_ControleVencimentos, DataVencimento, dataprevistacorte, DataRealizacaoCorte, DataRealizacaoFaturamento\n" +
+                "into #vencimentos\n" +
+                "from controlevencimentos (nolock) --where DataVencimento ='2023-06-11'\n" +
+                "where convert(varchar, DataVencimento, 103) = (\n" +
+                "    SELECT TOP (1)  cp.ProximoVencimentoPadrao\n" +
+                "    FROM ControleProcessos cp (NOLOCK),\n" +
+                "         ControleProcessosProcedures cpp (NOLOCK),\n" +
+                "         ProcessosProcedures pp (NOLOCK)\n" +
+                "   WHERE 0=0\n" +
+                "        and LEFT(cp.VencimentoPadraoCortar,2) = ISNULL(@diaVencimento,1)\n" +
+                "\t\tAND cp.DataMovimento = cpp.DataMovimento\n" +
+                "        AND cpp.FlagExecutado IN (1, 2) \n" +
+                "\t\tAND cpp.Id_Processo = pp.Id_Processo \n" +
+                "\t\tAND pp.NomeProcedure = 'SPR_Corte'\n" +
+                "    ORDER BY CONVERT(smalldatetime,cp.VencimentoPadraoCortar,103) DESC\n" +
+                ")\n" +
+                "--\n" +
+                "select 'controlevencimentos' as tabela,* from #vencimentos\n" +
+                "--\n" +
+                "select c.Id_ControleProcesso, c.DataMovimento, c.DataUltimoMovimento, c.DataUltimoMovimento - 3 as 'gerarComprasAte', \n" +
+                "\t   DATEDIFF(day, c.DataUltimoMovimento - 3, GETDATE()) as 'Dias anteriores'\n" +
+                "from ControleProcessos c\n" +
+                "inner join #vencimentos v on c.VencimentoPadraoFaturar = convert(varchar, v.DataVencimento, 103) ";
+    }
+
+    public String getGerarComprasAte(String dataVencimento) {
+        int diaVencimento = extrairDiaVencimento(dataVencimento);
+        Map<String, Object> resultado = executaUltimoResultSet(GetDataCompra(diaVencimento));
+        imprimirResultadoQuery("GetDataCompra", resultado);
+        if (Objects.isNull(resultado)) {
+            throw new SkipException("Não foi possível obter a data para gerar compras.");
+        }
+        return extrairDataSomente(resultado.get("gerarComprasAte"));
+    }
+
+    private int extrairDiaVencimento(String dataVencimento) {
+        String dataSomente = extrairDataSomente(dataVencimento);
+        if (dataSomente == null || dataSomente.length() < 10) {
+            throw new IllegalArgumentException("Data de vencimento inválida: " + dataVencimento);
+        }
+        return Integer.parseInt(dataSomente.substring(8, 10));
+    }
+
+    private Map<String, Object> getInformacoesVencimento(Connection conn, String dataVencimento) {
+        Map<String, Object> buscaInformacoesVencimento = executaQuery(conn, buildVencimentoMassa(dataVencimento));
 
         if (Objects.isNull(buscaInformacoesVencimento)) {
             throw new SkipException("Não existe massa válida na base de dados do emissor.");
         }
-        Object dataMovimento = buscaInformacoesVencimento.get("criar na ControleProcessosProcedures");
-        return extrairDataSomente(dataMovimento);
+        return buscaInformacoesVencimento;
     }
 
     public InsercaoVencimentoContexto buildInsertControleProcessosProcedures(String dataVencimento) {
@@ -145,6 +194,41 @@ public class MassaRecorrenteQueries {
         }
     }
 
+    private Map<String, Object> executaUltimoResultSet(String query) {
+        try (Connection conn = bd.getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            boolean hasResultSet = stmt.execute(query);
+            Map<String, Object> ultimoResultado = null;
+
+            while (hasResultSet || stmt.getUpdateCount() != -1) {
+                if (hasResultSet) {
+                    try (ResultSet rs = stmt.getResultSet()) {
+                        if (rs != null && rs.next()) {
+                            ultimoResultado = resultSetToMap(rs);
+                        }
+                    }
+                }
+                hasResultSet = stmt.getMoreResults();
+            }
+
+            return ultimoResultado;
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao executar query com múltiplos resultados: " + e.getMessage(), e);
+        }
+    }
+
+    private void imprimirResultadoQuery(String nomeQuery, Map<String, Object> resultado) {
+        System.out.println("Resultado da query " + nomeQuery + ":");
+        if (resultado == null) {
+            System.out.println("  <sem resultado>");
+            return;
+        }
+        for (Map.Entry<String, Object> entry : resultado.entrySet()) {
+            System.out.println("  " + entry.getKey() + " = " + entry.getValue());
+        }
+    }
+
     private Map<String, Object> executaQuery(Connection conn, String query) {
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
@@ -156,15 +240,6 @@ public class MassaRecorrenteQueries {
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao executar query na transação: " + e.getMessage(), e);
         }
-    }
-
-    private Map<String, Object> getInformacoesVencimento(Connection conn, String dataVencimento) {
-        Map<String, Object> buscaInformacoesVencimento = executaQuery(conn, buildVencimentoMassa(dataVencimento));
-
-        if (Objects.isNull(buscaInformacoesVencimento)) {
-            throw new SkipException("Não existe massa válida na base de dados do emissor.");
-        }
-        return buscaInformacoesVencimento;
     }
 
     private Map<String, Object> resultSetToMap(ResultSet rs) throws SQLException {
