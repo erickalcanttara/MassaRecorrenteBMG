@@ -35,6 +35,7 @@ import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
@@ -45,6 +46,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class VencimentoMassaScreen extends Application {
 
     private static final DateTimeFormatter DATA_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter HORA_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     private final MassaRecorrenteQueries queries = new MassaRecorrenteQueries();
     private final TextField dataVencimentoField = new TextField();
@@ -99,6 +101,7 @@ public class VencimentoMassaScreen extends Application {
 
         int diaVencimento = LocalDate.parse(dataVencimento, DATA_FORMATTER).getDayOfMonth();
         outputArea.setText("Executando insert...\n");
+        outputArea.appendText("Hora inicio do processamento de gerar massa: " + horaAtual() + "\n");
         executarInsertEConfirmar(dataVencimento, diaVencimento);
     }
 
@@ -151,7 +154,9 @@ public class VencimentoMassaScreen extends Application {
 
             contexto.commit();
             GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
-            GenarateAccountAndCardTest.setGerarComprasAte(queries.getGerarComprasAte(dataVencimento));
+            String gerarComprasAte = queries.getGerarComprasAte(dataVencimento);
+            GenarateAccountAndCardTest.setGerarComprasAte(gerarComprasAte);
+            outputArea.appendText("Data gerarComprasAte: " + gerarComprasAte + "\n");
             outputArea.appendText("\nCriando contas e cartões...\n");
             executarGenarateAccountAndCardTest(diaVencimento);
         });
@@ -192,6 +197,7 @@ public class VencimentoMassaScreen extends Application {
             @Override
             protected String call() {
                 GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
+                GenarateAccountAndCardTest.setOutputConsumer(VencimentoMassaScreen.this::appendOutput);
                 Set<String> cenariosReportados = ConcurrentHashMap.newKeySet();
                 SummaryGeneratingListener listener = new SummaryGeneratingListener();
                 TestExecutionListener progressoListener = new TestExecutionListener() {
@@ -217,6 +223,7 @@ public class VencimentoMassaScreen extends Application {
 
                 Launcher launcher = LauncherFactory.create();
                 launcher.execute(request, progressoListener, listener);
+                appendOutput("Hora fim do processamento de gerar massa: " + horaAtual() + "\n");
 
                 TestExecutionSummary summary = listener.getSummary();
                 StringBuilder resultado = new StringBuilder();
@@ -267,6 +274,10 @@ public class VencimentoMassaScreen extends Application {
 
     private void appendOutput(String mensagem) {
         Platform.runLater(() -> outputArea.appendText(mensagem));
+    }
+
+    private String horaAtual() {
+        return LocalDateTime.now().format(HORA_FORMATTER);
     }
 
     public static void main(String[] args) {

@@ -60,9 +60,9 @@ public class EventosExternosComprasUtils {
     }
 
     public Response gerarCompraAvista(String urlSandbox, String pathEventosCompras, String accessToken,
-                                int idConta, int idCartao, int valor, String dataCompra) {
-        int RandomNum = (int) (Math.random() * valor);
-        String bodyEventoCompra = getBodyEventoCompraAvista(idConta, idCartao, RandomNum, dataCompra);
+                                int idConta, int idCartao, int valorCompraMinimo, int valorCompraMaximo, String dataCompra) {
+        int valorCompra = ThreadLocalRandom.current().nextInt(valorCompraMinimo, valorCompraMaximo + 1);
+        String bodyEventoCompra = getBodyEventoCompraAvista(idConta, idCartao, valorCompra, dataCompra);
 
         System.out.println("\n Gerando evento externo de compra...");
         Response responseEventoCompra =
@@ -83,8 +83,9 @@ public class EventosExternosComprasUtils {
     }
 
     public Response gerarCompraParcelada(String urlSandbox, String pathEventosCompras, String accessToken,
-                                      int idConta, int idCartao,  int valorCompra, String dataCompra) {
+                                      int idConta, int idCartao, int valorCompraMinimo, int valorCompraMaximo, String dataCompra) {
 
+        int valorCompra = ThreadLocalRandom.current().nextInt(valorCompraMinimo, valorCompraMaximo + 1);
         int randomQtdParcelas = ThreadLocalRandom.current().nextInt(3, 13);
         int limiteValorParcela = Math.max(1, valorCompra / randomQtdParcelas);
         int randomValorParcela = ThreadLocalRandom.current().nextInt(1, limiteValorParcela + 1);

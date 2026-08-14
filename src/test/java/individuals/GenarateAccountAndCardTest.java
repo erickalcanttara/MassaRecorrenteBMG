@@ -1,5 +1,6 @@
 package individuals;
 
+import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Order;
@@ -11,6 +12,7 @@ import utils.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.function.Consumer;
 
 @TestMethodOrder(OrderAnnotation.class)
 public class GenarateAccountAndCardTest {
@@ -42,6 +44,7 @@ public class GenarateAccountAndCardTest {
     private static volatile Integer primeiroIdContaCenario1;
     private static volatile Integer ultimoIdContaCenario3;
     private static volatile Integer ultimoIdContaCenario5;
+    private static volatile Consumer<String> outputConsumer;
 
     PessoasUtils pessoa = new PessoasUtils();
     PessoasDetalhesUtils pessoasDetalhesUtils = new PessoasDetalhesUtils();
@@ -77,6 +80,10 @@ public class GenarateAccountAndCardTest {
     public static Integer getUltimoIdContaCenario3() {
         System.out.println("ultimoIdContaCenario3 = " + ultimoIdContaCenario3);
         return ultimoIdContaCenario3;
+    }
+
+    public static void setOutputConsumer(Consumer<String> outputConsumer) {
+        GenarateAccountAndCardTest.outputConsumer = outputConsumer;
     }
 
     private int getDiaVencimento() {
@@ -135,55 +142,67 @@ public class GenarateAccountAndCardTest {
         LocalDate dataProcessamento = LocalDate.parse(gerarComprasAte).plusDays(1);
         String dataProcessamentoCompras = dataProcessamento.format(DateTimeFormatter.ISO_LOCAL_DATE);
         System.out.println("DataProcessamentoCompras = " + dataProcessamentoCompras);
+        registrarLogTela("Processando compras com DataProcessamentoCompras = " + dataProcessamentoCompras);
         queries.MassaRecorrenteQueries queries = new queries.MassaRecorrenteQueries();
         queries.processarCompras(
                 dataProcessamentoCompras,
                 primeiroIdContaCenario1,
                 ultimoIdContaCenario3
         );
+        registrarLogTela("Processamento de compras finalizado.");
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario1/cenario-1.csv", delimiter = ';')
     @Order(1)
-    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, int valorCompra) {
+    public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, int valorCompraMinimo, int  valorCompraMaximo) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
-        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra, getGerarComprasAteMenosCincoDias());
+        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario2/cenario-2.csv", delimiter = ';')
     @Order(2)
-    public void genareteIndividualAccountAndCardCenario2Test(int idProduto, int produtoVinculado, String tipoCompra, int valorCompra) {
+    public void genareteIndividualAccountAndCardCenario2Test(int idProduto, int produtoVinculado, String tipoCompra, int valorCompraMinimo, int  valorCompraMaximo) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO2);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
         if (tipoCompra.equals("avista")) {
-            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra, getGerarComprasAteMenosCincoDias());
+            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
         } else if (tipoCompra.equals("parcelada")) {
-            eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompra, getGerarComprasAteMenosCincoDias());
+            eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
         }
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario4/cenario-4.csv", delimiter = ';')
     @Order(3)
-    public void genareteIndividualAccountAndCardCenario4Test(int idProduto1, int produtoVinculado) {
+    public void genareteIndividualAccountAndCardCenario4Test(int idProduto1, int produtoVinculado, String tipoCompra, int valorCompraMinimo, int  valorCompraMaximo) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto1, NOME_CENARIO4);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
+        if (tipoCompra.equals("avista")) {
+            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
+        } else if (tipoCompra.equals("parcelada")) {
+            eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
+        }
     }
 
     @ParameterizedTest
-    @CsvFileSource(resources = "/cenario5/cenario-5.csv")
+    @CsvFileSource(resources = "/cenario5/cenario-5.csv", delimiter = ';')
     @Order(4)
-    public void genareteIndividualAccountAndCardCenario5Test(int idProduto) {
-        executarFluxoPrincipal(idProduto, NOME_CENARIO5);
+    public void genareteIndividualAccountAndCardCenario5Test(int idProduto, String tipoCompra, int valorCompraMinimo, int  valorCompraMaximo) {
+        DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO5);
+        if (tipoCompra.equals("avista")) {
+            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
+        } else if (tipoCompra.equals("parcelada")) {
+            eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
+        }
     }
 
     @ParameterizedTest
     @CsvFileSource(resources = "/cenario3/cenario-3.csv", delimiter = ';')
     @Order(5)
-    public void genareteIndividualAccountAndCardCenario3Test(int idProduto, int produtoVinculado1, int produtoVinculado2, int produtoVinculado3) {
+    public void genareteIndividualAccountAndCardCenario3Test(int idProduto, int produtoVinculado1, int produtoVinculado2, int produtoVinculado3, String tipoCompra, int valorCompraMinimo, int  valorCompraMaximo, int qtdCompras) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO3);
         int[] produtosVinculados = {produtoVinculado1, produtoVinculado2, produtoVinculado3};
 
@@ -193,7 +212,14 @@ public class GenarateAccountAndCardTest {
             }
             cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produto);
         }
-    }
+        for(int i = 0; i < qtdCompras; i++) {
+            if (tipoCompra.equals("avista")) {
+                eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
+            } else if (tipoCompra.equals("parcelada")) {
+                eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
+            }
+        }
+         }
 
     private DadosContaBase executarFluxoPrincipal(int idProduto, String nomeCenario) {
         int randomNumeroAgencia = gerarNumeroAgencia();
@@ -215,6 +241,8 @@ public class GenarateAccountAndCardTest {
     }
 
     private void registrarIdConta(String nomeCenario, int idConta) {
+        registrarLogTela("idConta finalizado do " + nomeCenario + " = " + idConta);
+
         if (NOME_CENARIO1.equals(nomeCenario) && primeiroIdContaCenario1 == null) {
             primeiroIdContaCenario1 = idConta;
             System.out.println("Salvando primeiroIdContaCenario1 = " + primeiroIdContaCenario1);
@@ -231,6 +259,14 @@ public class GenarateAccountAndCardTest {
             ultimoIdContaCenario5 = idConta;
             System.out.println("Salvando ultimoIdContaCenario5 = " + ultimoIdContaCenario5);
         }
+    }
+
+    private static void registrarLogTela(String mensagem) {
+        Consumer<String> consumer = outputConsumer;
+        if (consumer != null) {
+            consumer.accept(mensagem + "\n");
+        }
+        System.out.println(mensagem);
     }
 
     private void cadastrarContaVinculada(int idPessoa, int idEndereco, int idProdutoVinculado) {
