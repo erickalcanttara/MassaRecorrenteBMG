@@ -98,6 +98,20 @@ public class MassaRecorrenteQueries {
                 "inner join #vencimentos v on c.VencimentoPadraoFaturar = convert(varchar, v.DataVencimento, 103) ";
     }
 
+    public void processarCompras(String DataProcessamentoCompras, int PrimeiroIdContaCenario1, int ultimoIdContaCenario3){
+        String queryProcessaCompras =   "exec SPR_PROCESSACOMPRAS '"+ DataProcessamentoCompras + "', '', '" + PrimeiroIdContaCenario1 + "', '" + ultimoIdContaCenario3 + "'\n" +
+                                        "exec SPR_PROCESSACOMPRAS_INSERETRANSACOES '"+ DataProcessamentoCompras + "', '', '" + PrimeiroIdContaCenario1 + "', '" + ultimoIdContaCenario3 + "'\n" +
+                                        "exec SPR_LANCAPARCELAS  '"+ DataProcessamentoCompras + "', '', '" + PrimeiroIdContaCenario1 + "', '" + ultimoIdContaCenario3 + "'";
+
+        try (Connection conn = bd.getConnection();
+             Statement stmt = conn.createStatement()) {
+            System.out.println("Executando processarCompras com DataProcessamentoCompras = " + DataProcessamentoCompras);
+            stmt.execute(queryProcessaCompras);
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao executar processarCompras: " + e.getMessage(), e);
+        }
+    }
+
     public String getGerarComprasAte(String dataVencimento) {
         int diaVencimento = extrairDiaVencimento(dataVencimento);
         Map<String, Object> resultado = executaUltimoResultSet(GetDataCompra(diaVencimento));

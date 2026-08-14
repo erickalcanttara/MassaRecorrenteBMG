@@ -1,6 +1,7 @@
 package massaRecorrente;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -23,8 +24,11 @@ import individuals.GenarateAccountAndCardTest;
 import queries.MassaRecorrenteQueries;
 
 import org.junit.platform.engine.discovery.DiscoverySelectors;
+import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.launcher.Launcher;
 import org.junit.platform.launcher.LauncherDiscoveryRequest;
+import org.junit.platform.launcher.TestExecutionListener;
+import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
@@ -35,6 +39,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class VencimentoMassaScreen extends Application {
 
@@ -53,7 +59,7 @@ public class VencimentoMassaScreen extends Application {
         Label dataLabel = new Label("Data vencimento (yyyy-MM-dd):");
         dataVencimentoField.setPromptText("2026-09-01");
 
-        Button gerarButton = new Button("Gerar");
+        Button gerarButton = new Button("Gerar Massa");
         gerarButton.setOnAction(event -> gerar());
 
         HBox inputBox = new HBox(10, dataLabel, dataVencimentoField, gerarButton);
@@ -186,13 +192,31 @@ public class VencimentoMassaScreen extends Application {
             @Override
             protected String call() {
                 GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
+                Set<String> cenariosReportados = ConcurrentHashMap.newKeySet();
                 SummaryGeneratingListener listener = new SummaryGeneratingListener();
+                TestExecutionListener progressoListener = new TestExecutionListener() {
+                    @Override
+                    public void executionFinished(TestIdentifier testIdentifier, TestExecutionResult testExecutionResult) {
+                        if (!testIdentifier.isContainer()) {
+                            return;
+                        }
+
+                        String mensagem = obterMensagemCenario(testIdentifier.getDisplayName());
+                        if (mensagem == null) {
+                            return;
+                        }
+
+                        if (cenariosReportados.add(mensagem)) {
+                            appendOutput(mensagem + "\n");
+                        }
+                    }
+                };
                 LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
                         .selectors(DiscoverySelectors.selectClass(GenarateAccountAndCardTest.class))
                         .build();
 
                 Launcher launcher = LauncherFactory.create();
-                launcher.execute(request, listener);
+                launcher.execute(request, progressoListener, listener);
 
                 TestExecutionSummary summary = listener.getSummary();
                 StringBuilder resultado = new StringBuilder();
@@ -220,6 +244,29 @@ public class VencimentoMassaScreen extends Application {
         Thread thread = new Thread(task);
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private String obterMensagemCenario(String displayName) {
+        if (displayName.contains("Cenario1")) {
+            return "Cenario 1 finalizado.";
+        }
+        if (displayName.contains("Cenario2")) {
+            return "Cenario 2 finalizado.";
+        }
+        if (displayName.contains("Cenario3")) {
+            return "Cenario 3 finalizado.";
+        }
+        if (displayName.contains("Cenario4")) {
+            return "Cenario 4 finalizado.";
+        }
+        if (displayName.contains("Cenario5")) {
+            return "Cenario 5 finalizado.";
+        }
+        return null;
+    }
+
+    private void appendOutput(String mensagem) {
+        Platform.runLater(() -> outputArea.appendText(mensagem));
     }
 
     public static void main(String[] args) {

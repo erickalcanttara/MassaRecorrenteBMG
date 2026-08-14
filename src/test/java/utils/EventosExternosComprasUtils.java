@@ -82,7 +82,7 @@ public class EventosExternosComprasUtils {
         return responseEventoCompra;
     }
 
-    public Response gerarCompraParcelado(String urlSandbox, String pathEventosCompras, String accessToken,
+    public Response gerarCompraParcelada(String urlSandbox, String pathEventosCompras, String accessToken,
                                       int idConta, int idCartao,  int valorCompra, String dataCompra) {
 
         int randomQtdParcelas = ThreadLocalRandom.current().nextInt(3, 13);
