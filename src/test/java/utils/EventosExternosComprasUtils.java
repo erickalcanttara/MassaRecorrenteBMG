@@ -21,7 +21,7 @@ public class EventosExternosComprasUtils {
                 "  \"idConta\": " + idConta + ",\n" +
                 "  \"idCartao\": " + idCartao + ",\n" +
                 "  \"dataCompra\": \"" + montarDataCompra(dataCompra) + "\",\n" +
-                "  \"idOperacao\": 270,\n" +
+                "  \"idOperacao\": 10552,\n" + // 10552 à vista Elo - 270 parcelado logista Mastercard
                 "  \"numeroParcelas\": 1,\n" +
                 "  \"valorParcela\": " + valor + ",\n" +
                 "  \"valorContrato\": " + valor + ",\n" +
@@ -43,7 +43,7 @@ public class EventosExternosComprasUtils {
                 "  \"idConta\": " + idConta + ",\n" +
                 "  \"idCartao\": " + idCartao + ",\n" +
                 "  \"dataCompra\": \"" + montarDataCompra(dataCompra) + "\",\n" +
-                "  \"idOperacao\": 28,\n" +
+                "  \"idOperacao\": 10557,\n" + // 10557 parcelado logista elo - 28 parcelado logista Mastercard
                 "  \"numeroParcelas\": " + qtdParcelas + ",\n" +
                 "  \"valorParcela\": " + valorParcela + ",\n" +
                 "  \"valorContrato\": " + (qtdParcelas * valorParcela) + ",\n" +

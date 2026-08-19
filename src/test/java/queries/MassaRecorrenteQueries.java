@@ -112,6 +112,87 @@ public class MassaRecorrenteQueries {
         }
     }
 
+    public void processarCorte(String dataVencimento, int idContaInicial, int idContaFinal) {
+        final String buscaDataMovimentoSql = "select top 1 dataprevistacorte from ControleVencimentos " +
+                "where datavencimento = ? and DataRealizacaoCorte is null";
+        final String[] procedures = {
+                "spr_corte",
+                "SPR_IniciaCiclo",
+                "SPR_FlagEmiteExtrato",
+                "SPR_DataVencimentoCobranca",
+                "SPR_IdEndereco",
+                "SPR_EncerraFaturamento",
+                "SPR_Vencimento",
+                "SPR_VencimentoTransacoes",
+                "SPR_CalculaValorMinimo",
+                "SPR_ProcessamentoPagamentos",
+                "SPR_Gerar_Campanha_ParcelamentoFatura",
+                "SPR_GerarOfertaParcelamento",
+                "SPR_Gerar_ParcelFaturaRotConsig"
+        };
+
+        try (Connection conn = bd.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                Timestamp dataMovimento = buscarDataMovimento(conn, buscaDataMovimentoSql, dataVencimento);
+                for (String procedure : procedures) {
+                    executarProcedureFaixaContas(conn, procedure, dataMovimento, idContaInicial, idContaFinal);
+                }
+                conn.commit();
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao executar processamento de corte: " + e.getMessage(), e);
+        }
+    }
+
+    private Timestamp buscarDataMovimento(Connection conn, String buscaDataMovimentoSql, String dataVencimento) throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement(buscaDataMovimentoSql)) {
+            stmt.setTimestamp(1, parseDataVencimento(dataVencimento));
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    throw new SkipException("Nao foi encontrada dataprevistacorte para dataVencimento " + dataVencimento + " com DataRealizacaoCorte nula.");
+                }
+                Timestamp dataMovimento = rs.getTimestamp("dataprevistacorte");
+                if (dataMovimento == null) {
+                    throw new SkipException("A dataprevistacorte retornou nula para dataVencimento " + dataVencimento + ".");
+                }
+                return dataMovimento;
+            }
+        }
+    }
+
+    private void executarProcedureFaixaContas(Connection conn, String procedure, Timestamp dataMovimento, int idContaInicial, int idContaFinal) throws SQLException {
+        String sql = "{call " + procedure + "(?, ?, ?, ?)}";
+        try (CallableStatement stmt = conn.prepareCall(sql)) {
+            stmt.setTimestamp(1, dataMovimento);
+            stmt.setString(2, "");
+            stmt.setInt(3, idContaInicial);
+            stmt.setInt(4, idContaFinal);
+            stmt.execute();
+        }
+    }
+
+    private Timestamp parseDataVencimento(String dataVencimento) {
+        String dataNormalizada = dataVencimento.trim();
+        if (dataNormalizada.length() == 10) {
+            dataNormalizada = dataNormalizada + " 00:00:00";
+        } else if (dataNormalizada.length() == 16) {
+            dataNormalizada = dataNormalizada + ":00";
+        }
+
+        try {
+            return Timestamp.valueOf(dataNormalizada);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(
+                    "Data de vencimento invalida. Use yyyy-MM-dd ou yyyy-MM-dd HH:mm:ss. Valor recebido: " + dataVencimento,
+                    e
+            );
+        }
+    }
+
     public String getGerarComprasAte(String dataVencimento) {
         int diaVencimento = extrairDiaVencimento(dataVencimento);
         Map<String, Object> resultado = executaUltimoResultSet(GetDataCompra(diaVencimento));
