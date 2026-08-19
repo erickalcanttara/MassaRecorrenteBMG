@@ -154,6 +154,7 @@ public class VencimentoMassaScreen extends Application {
 
             contexto.commit();
             GenarateAccountAndCardTest.setDiaVencimento(diaVencimento);
+            GenarateAccountAndCardTest.setDataVencimento(dataVencimento);
             String gerarComprasAte = queries.getGerarComprasAte(dataVencimento);
             GenarateAccountAndCardTest.setGerarComprasAte(gerarComprasAte);
             outputArea.appendText("Data gerarComprasAte: " + gerarComprasAte + "\n");

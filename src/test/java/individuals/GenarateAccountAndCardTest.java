@@ -39,6 +39,7 @@ public class GenarateAccountAndCardTest {
 
     int idOrigemComercial = 11;
     private static volatile Integer diaVencimento;
+    private static volatile String dataVencimento;
     private static volatile String gerarComprasAte;
     private static volatile Integer primeiroIdContaCenario1;
     private static volatile Integer ultimoIdContaCenario3;
@@ -60,6 +61,10 @@ public class GenarateAccountAndCardTest {
 
     public static void setGerarComprasAte(String gerarComprasAte) {
         GenarateAccountAndCardTest.gerarComprasAte = gerarComprasAte;
+    }
+
+    public static void setDataVencimento(String dataVencimento) {
+        GenarateAccountAndCardTest.dataVencimento = dataVencimento;
     }
 
     public static String getGerarComprasAteValue() {
@@ -123,8 +128,11 @@ public class GenarateAccountAndCardTest {
         new ArquivoCenarioUtils().limparPastasResultadosEmResources();
     }
 
-    //@AfterAll
+    @AfterAll
     static void afterTest() {
+        if (dataVencimento == null || dataVencimento.isEmpty()) {
+            throw new IllegalStateException("Data de vencimento não informada pela tela.");
+        }
         if (gerarComprasAte == null || gerarComprasAte.isEmpty()) {
             throw new IllegalStateException("Data limite para compras não informada pela tela.");
         }
@@ -149,6 +157,13 @@ public class GenarateAccountAndCardTest {
                 ultimoIdContaCenario3
         );
         registrarLogTela("Processamento de compras finalizado.");
+        registrarLogTela("Processando corte com DataVencimento = " + dataVencimento);
+        queries.processarCorte(
+                dataVencimento,
+                primeiroIdContaCenario1,
+                ultimoIdContaCenario5
+        );
+        registrarLogTela("Processamento de corte finalizado.");
     }
 
     @ParameterizedTest

@@ -112,7 +112,7 @@ public class MassaRecorrenteQueries {
         }
     }
 
-    public void processarCorte(String dataVencimento, int idContaInicial, int idContaFinal) {
+    public void processarCorte(String dataVencimento, int primeiroIdContaCenario1, int ultimoIdContaCenario5) {
         final String buscaDataMovimentoSql = "select top 1 dataprevistacorte from ControleVencimentos " +
                 "where datavencimento = ? and DataRealizacaoCorte is null";
         final String[] procedures = {
@@ -136,7 +136,7 @@ public class MassaRecorrenteQueries {
             try {
                 Timestamp dataMovimento = buscarDataMovimento(conn, buscaDataMovimentoSql, dataVencimento);
                 for (String procedure : procedures) {
-                    executarProcedureFaixaContas(conn, procedure, dataMovimento, idContaInicial, idContaFinal);
+                    executarProcedureFaixaContas(conn, procedure, dataMovimento, primeiroIdContaCenario1, ultimoIdContaCenario5);
                 }
                 conn.commit();
             } catch (SQLException | RuntimeException e) {
