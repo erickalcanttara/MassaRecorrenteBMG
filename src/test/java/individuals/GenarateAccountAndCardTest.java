@@ -9,6 +9,10 @@ import org.junit.jupiter.params.provider.CsvFileSource;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import utils.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.function.Consumer;
@@ -157,6 +161,7 @@ public class GenarateAccountAndCardTest {
                 ultimoIdContaCenario3
         );
         registrarLogTela("Processamento de compras finalizado.");
+
         registrarLogTela("Processando corte com DataVencimento = " + dataVencimento);
         queries.processarCorte(
                 dataVencimento,
@@ -164,6 +169,30 @@ public class GenarateAccountAndCardTest {
                 ultimoIdContaCenario5
         );
         registrarLogTela("Processamento de corte finalizado.");
+
+        if (arquivoIdsCenario4Disponivel()) {
+            registrarLogTela("Atualizando status das contas do cenario 4.");
+            queries.atualizaIdsContasCenario4();
+            registrarLogTela("Atualizacao das contas do cenario 4 finalizada.");
+        } else {
+            registrarLogTela("Arquivo de ids do cenario 4 nao encontrado ou sem dados. Atualizacao ignorada.");
+        }
+    }
+
+    private static boolean arquivoIdsCenario4Disponivel() {
+        Path arquivoIds = Paths.get("src", "test", "resources", "cenario4", "ids-conta-cartao-cenario4.csv");
+        if (!Files.exists(arquivoIds)) {
+            return false;
+        }
+
+        try {
+            return Files.readAllLines(arquivoIds).stream()
+                    .skip(1)
+                    .map(String::trim)
+                    .anyMatch(linha -> !linha.isEmpty());
+        } catch (IOException e) {
+            throw new RuntimeException("Erro ao validar arquivo de ids do cenario 4: " + e.getMessage(), e);
+        }
     }
 
     @ParameterizedTest
@@ -172,7 +201,7 @@ public class GenarateAccountAndCardTest {
     public void genareteIndividualAccountAndCardCenario1Test(int idProduto, int produtoVinculado, int valorCompraMinimo, int  valorCompraMaximo) {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO1);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
-        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, "2026-09-01"/*getGerarComprasAteMenosCincoDias()*/);
+        eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
     }
 
     @ParameterizedTest
@@ -182,9 +211,9 @@ public class GenarateAccountAndCardTest {
         DadosContaBase dadosBase = executarFluxoPrincipal(idProduto, NOME_CENARIO2);
         cadastrarContaVinculada(dadosBase.idPessoa, dadosBase.idEndereco, produtoVinculado);
         if (tipoCompra.equals("avista")) {
-            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, "2026-08-20"/*getGerarComprasAteMenosCincoDias()*/);
+            eventosExternosComprasUtils.gerarCompraAvista(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
         } else if (tipoCompra.equals("parcelada")) {
-            eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, "2026-08-20"/*getGerarComprasAteMenosCincoDias()*/);
+            eventosExternosComprasUtils.gerarCompraParcelada(URL_SANDBOX, PATH_EVENTOS_COMPRAS, accessToken, dadosBase.idConta, dadosBase.idCartao, valorCompraMinimo, valorCompraMaximo, getGerarComprasAteMenosCincoDias());
         }
     }
 
@@ -242,7 +271,7 @@ public class GenarateAccountAndCardTest {
         int idPessoa = pessoa.geraPessoa(URL_SANDBOX, PATH_PESSOAS, accessToken);
         pessoasDetalhesUtils.geraPessoaDetalhes(URL_SANDBOX, PATH_PESSOAS_DETALHES, accessToken, idPessoa, randomNumeroAgencia, randomContaCorrente);
         int idEndereco = enderecosUtils.geraEndereco(URL_SANDBOX, PATH_ENDERECOS, accessToken, idPessoa);
-        int idConta = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProduto, 1/*getDiaVencimento()*/);
+        int idConta = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProduto, getDiaVencimento());
 
         dadosBancariosUtils.cadastraDadosBancarios(URL_SANDBOX, PATH_DADOS_BANCARIOS, accessToken, idConta, randomNumeroAgencia, randomContaCorrente);
         int idCartao = cartoesUtils.geraCartao(URL_SANDBOX, PATH_CARTOES, accessToken, idConta, idPessoa);
@@ -287,7 +316,7 @@ public class GenarateAccountAndCardTest {
         int randomNumeroAgenciaVinculado = gerarNumeroAgencia();
         int randomContaCorrenteVinculado = gerarContaCorrente();
 
-        int idContaVinculado = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProdutoVinculado, 1/*getDiaVencimento()*/);
+        int idContaVinculado = contaUtils.cadastraConta(URL_SANDBOX, PATH_CONTAS, accessToken, idPessoa, idEndereco, idOrigemComercial, idProdutoVinculado, getDiaVencimento());
         dadosBancariosUtils.cadastraDadosBancarios(URL_SANDBOX, PATH_DADOS_BANCARIOS, accessToken, idContaVinculado, randomNumeroAgenciaVinculado, randomContaCorrenteVinculado);
     }
 

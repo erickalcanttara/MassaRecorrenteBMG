@@ -2,8 +2,14 @@ package queries;
 
 import org.testng.SkipException;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -99,16 +105,35 @@ public class MassaRecorrenteQueries {
     }
 
     public void processarCompras(String DataProcessamentoCompras, int PrimeiroIdContaCenario1, int ultimoIdContaCenario3){
-        String queryProcessaCompras =   "exec SPR_PROCESSACOMPRAS '"+ DataProcessamentoCompras + "', '', '" + PrimeiroIdContaCenario1 + "', '" + ultimoIdContaCenario3 + "'\n" +
-                                        "exec SPR_PROCESSACOMPRAS_INSERETRANSACOES '"+ DataProcessamentoCompras + "', '', '" + PrimeiroIdContaCenario1 + "', '" + ultimoIdContaCenario3 + "'\n" +
-                                        "exec SPR_LANCAPARCELAS  '"+ DataProcessamentoCompras + "', '', '" + PrimeiroIdContaCenario1 + "', '" + ultimoIdContaCenario3 + "'";
-
-        try (Connection conn = bd.getConnection();
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = bd.getConnection()) {
             System.out.println("Executando processarCompras com DataProcessamentoCompras = " + DataProcessamentoCompras);
-            stmt.execute(queryProcessaCompras);
+            executarProceduresCompras(conn, DataProcessamentoCompras, PrimeiroIdContaCenario1, ultimoIdContaCenario3);
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao executar processarCompras: " + e.getMessage(), e);
+        }
+    }
+
+    private void executarProceduresCompras(Connection conn, String dataProcessamentoCompras, int primeiroIdContaCenario1, int ultimoIdContaCenario3) throws SQLException {
+        final String[] procedures = {
+                "SPR_PROCESSACOMPRAS",
+                "SPR_PROCESSACOMPRAS_INSERETRANSACOES",
+                "SPR_LANCAPARCELAS"
+        };
+
+        StringBuilder sqlBuilder = new StringBuilder("set nocount on; ");
+        for (String procedure : procedures) {
+            sqlBuilder.append("exec ").append(procedure).append(" ?, ?, ?, ?; ");
+        }
+
+        try (PreparedStatement stmt = conn.prepareStatement(sqlBuilder.toString())) {
+            int index = 1;
+            for (int i = 0; i < procedures.length; i++) {
+                stmt.setString(index++, dataProcessamentoCompras);
+                stmt.setString(index++, "");
+                stmt.setInt(index++, primeiroIdContaCenario1);
+                stmt.setInt(index++, ultimoIdContaCenario3);
+            }
+            stmt.execute();
         }
     }
 
@@ -135,9 +160,7 @@ public class MassaRecorrenteQueries {
             conn.setAutoCommit(false);
             try {
                 Timestamp dataMovimento = buscarDataMovimento(conn, buscaDataMovimentoSql, dataVencimento);
-                for (String procedure : procedures) {
-                    executarProcedureFaixaContas(conn, procedure, dataMovimento, primeiroIdContaCenario1, ultimoIdContaCenario5);
-                }
+                executarProceduresCorteParametrizadas(conn, procedures, dataMovimento, primeiroIdContaCenario1, ultimoIdContaCenario5);
                 conn.commit();
             } catch (SQLException | RuntimeException e) {
                 conn.rollback();
@@ -145,6 +168,90 @@ public class MassaRecorrenteQueries {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Erro ao executar processamento de corte: " + e.getMessage(), e);
+        }
+    }
+
+    private void executarProceduresCorteParametrizadas(Connection conn, String[] procedures, Timestamp dataMovimento, int primeiroIdContaCenario1, int ultimoIdContaCenario5) throws SQLException {
+        StringBuilder sqlBuilder = new StringBuilder("set nocount on; ");
+        for (String procedure : procedures) {
+            sqlBuilder.append("exec ").append(procedure).append(" ?, ?, ?, ?; ");
+        }
+
+        String sql = sqlBuilder.toString();
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int index = 1;
+            for (int i = 0; i < procedures.length; i++) {
+                stmt.setTimestamp(index++, dataMovimento);
+                stmt.setString(index++, "");
+                stmt.setInt(index++, primeiroIdContaCenario1);
+                stmt.setInt(index++, ultimoIdContaCenario5);
+            }
+            stmt.execute();
+        }
+    }
+
+    public void atualizaIdsContasCenario4() {
+        atualizaIdsContasCenario4DoArquivo();
+    }
+
+    public void atualizaIdsContasCenario4DoArquivo() {
+        Path arquivoIds = Paths.get("src", "test", "resources", "cenario4", "ids-conta-cartao-cenario4.csv");
+        List<Integer> idsConta = lerIdsContaCenario4(arquivoIds);
+
+        if (idsConta.isEmpty()) {
+            throw new RuntimeException("Nenhum id_conta encontrado no arquivo: " + arquivoIds);
+        }
+
+        for (int i = 0; i < idsConta.size(); i++) {
+            int posicao = i + 1;
+            int idConta = idsConta.get(i);
+            int status = (posicao % 2 == 0) ? 48 : 8;
+            atualizarStatusConta(idConta, status);
+            System.out.println("Conta atualizada. posicao = " + posicao + ", id_conta = " + idConta + ", status = " + status);
+        }
+    }
+
+    private List<Integer> lerIdsContaCenario4(Path arquivoIds) {
+        try {
+            if (!Files.exists(arquivoIds)) {
+                throw new RuntimeException("Arquivo nao encontrado: " + arquivoIds);
+            }
+
+            List<String> linhas = Files.readAllLines(arquivoIds);
+            List<Integer> idsConta = new ArrayList<>();
+            for (int i = 1; i < linhas.size(); i++) {
+                String linha = linhas.get(i).trim();
+                if (linha.isEmpty()) {
+                    continue;
+                }
+
+                String[] colunas = linha.split(",");
+                if (colunas.length == 0 || colunas[0].trim().isEmpty()) {
+                    continue;
+                }
+
+                idsConta.add(Integer.parseInt(colunas[0].trim()));
+            }
+            return idsConta;
+        } catch (IOException e) {
+            throw new RuntimeException("Erro ao ler arquivo de ids do cenario 4: " + e.getMessage(), e);
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Arquivo de ids do cenario 4 possui id_conta invalido: " + e.getMessage(), e);
+        }
+    }
+
+    private void atualizarStatusConta(int idConta, int status) {
+        final String updateSql = "update contas set status = ? where id_conta = ?";
+        try (Connection conn = bd.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+            stmt.setInt(1, status);
+            stmt.setInt(2, idConta);
+            int linhasAfetadas = stmt.executeUpdate();
+            if (linhasAfetadas == 0) {
+                throw new RuntimeException("Nenhuma conta encontrada para id_conta = " + idConta);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Erro ao atualizar status da conta do cenario 4: " + e.getMessage(), e);
         }
     }
 
@@ -161,17 +268,6 @@ public class MassaRecorrenteQueries {
                 }
                 return dataMovimento;
             }
-        }
-    }
-
-    private void executarProcedureFaixaContas(Connection conn, String procedure, Timestamp dataMovimento, int idContaInicial, int idContaFinal) throws SQLException {
-        String sql = "{call " + procedure + "(?, ?, ?, ?)}";
-        try (CallableStatement stmt = conn.prepareCall(sql)) {
-            stmt.setTimestamp(1, dataMovimento);
-            stmt.setString(2, "");
-            stmt.setInt(3, idContaInicial);
-            stmt.setInt(4, idContaFinal);
-            stmt.execute();
         }
     }
 
